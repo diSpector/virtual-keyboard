@@ -1,0 +1,16 @@
+{
+  "name": "rss-keyboard.loc",
+  "version": "1.0.0",
+  "description": "Virtual Keyboard for Rsschool",
+  "main": "script.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Dmitry Semenov",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^6.8.0",
+    "eslint-config-airbnb-base": "^14.1.0",
+    "eslint-plugin-import": "^2.20.2"
+  }
+}
