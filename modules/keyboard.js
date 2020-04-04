@@ -1,6 +1,6 @@
-import { Button } from './button.js';
+import Button from './button.js';
 
-export class Keyboard {
+export default class Keyboard {
   constructor(keysobj, language, container) {
     this.keysObj = keysobj;
     this.language = language;
@@ -13,9 +13,9 @@ export class Keyboard {
 
   renderButtons() { // нарисовать кнопки
     const container = document.querySelector(`.${this.container}`);
-    for (const prop in this.keysObj) {
+    Object.keys(this.keysObj).forEach((prop) => {
       const button = new Button(prop, this.keysObj[prop], this.language, container);
       button.render();
-    }
+    });
   }
 }

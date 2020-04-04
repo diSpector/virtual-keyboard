@@ -1,4 +1,4 @@
-export class Button {
+export default class Button {
   constructor(id, buttonObj, language, container) {
     this.id = id;
     this.button = buttonObj;
@@ -15,14 +15,13 @@ export class Button {
     const el = document.createElement('div');
     el.id = this.id;
     el.classList.add('button');
-    if (this.button.hasOwnProperty('style')) {
+    if ('style' in this.button) {
       this.button.style.forEach((st) => {
         el.classList.add(st);
       });
     }
     el.innerText = this.button[this.language];
-    // печать альтернативного текста (для цифр)
-    if (this.button.hasOwnProperty('alternative')) {
+    if ('alternative' in this.button) {
       const alterEl = document.createElement('div');
       alterEl.classList.add('alternative');
       alterEl.innerText = this.button.alternative;

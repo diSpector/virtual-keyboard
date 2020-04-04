@@ -1,6 +1,6 @@
-import { Keyboard } from './keyboard.js';
+import Keyboard from './keyboard.js';
 
-export class App {
+export default class App {
   constructor(appConfigObj, keysObj) {
     this.wrapperClass = appConfigObj.wrapperClass;
     this.keyboardConatainerClass = appConfigObj.keyboardConatainerClass;
@@ -9,6 +9,7 @@ export class App {
     this.infoClass = appConfigObj.infoClass;
     this.keysObj = keysObj;
     this.language = this.getLanguage();
+    this.caps = false;
   }
 
   init() { // создать разметку (textarea, клавиатура с клавишами)
@@ -26,14 +27,15 @@ export class App {
 
   attachClickEventListeners() { // назначить слушатели кликов
     const container = document.querySelector(`.${this.keyboardKeysClass}`);
+    const textarea = document.querySelector(`.${this.keyboardTextareaClass} textarea`);
+
     container.addEventListener('mousedown', (event) => {
       // делегируем контейнеру клавиатуры клик по кнопке
       const button = event.target.closest('.button');
       if (!button) {
         return;
       }
-      // this.processClick(button);
-      this.processEvent(button);
+      this.processEvent(button, 'click');
     });
 
     container.addEventListener('mouseup', (event) => {
@@ -43,10 +45,12 @@ export class App {
         return;
       }
       button.classList.remove('pressed');
+      textarea.focus(); // чтобы фокус оставался в поле после клика по кнопкам вне его
     });
   }
 
   attachPushEventListeners() { // назначить слушатели нажатий на клавиши
+    const textarea = document.querySelector(`.${this.keyboardTextareaClass} textarea`);
     document.addEventListener('keydown', (event) => {
       if (event.altKey && event.shiftKey) { // переключение языка
         this.switchKeyboardLanguage();
@@ -55,9 +59,7 @@ export class App {
       if (!button) {
         return;
       }
-
-      this.processEvent(button);
-      // this.processPush(button);
+      this.processEvent(button, 'click');
     });
 
     document.addEventListener('keyup', (event) => {
@@ -66,41 +68,152 @@ export class App {
         return;
       }
       button.classList.remove('pressed');
+      textarea.focus(); // вернуть фокус на textarea
     });
   }
 
-  processEvent (element) { // обработка события нажатия/клика
+  processEvent(element, event = 'push') { // обработка события нажатия/клика
+    const cursorPos = this.getCursorPosition();
+    const textarea = document.querySelector(`.${this.keyboardTextareaClass} textarea`);
     element.classList.add('pressed');
-    // const textarea = document.querySelector(`.${this.keyboardTextareaClass}`);
-    const textarea = document.querySelector('textarea');
-    if (!element.classList.contains('special')) {
-      // textarea.value += element.innerText;
-      textarea.value += element.firstChild.nodeValue; // т.к. у цифр есть вложенные div
+    if (!element.classList.contains('special')) { // напечатать обычный символ
+      const text = textarea.value;
+      textarea.value = text.substring(0, cursorPos)
+      + ((this.caps) ? element.firstChild.nodeValue.toUpperCase() : element.firstChild.nodeValue)
+      + text.substring(cursorPos);
+      textarea.selectionStart = cursorPos + 1;
+      textarea.selectionEnd = cursorPos + 1;
+    } else if (element.classList.contains('special') && event === 'click') {
+      this.processSpecialClick(element.id);
     }
-    // добавить обработку нажатия спецсимвола
   }
 
-  // processPush(element) {
-  //     element.classList.add('pressed');
-  //     const textarea = document.querySelector('textarea');
-  //     if (!element.classList.contains('special')) {
-  //         textarea.value += element.innerText;
-  //     }
-  // }
+  processSpecialClick(elementId) {
+    const textarea = document.querySelector(`.${this.keyboardTextareaClass} textarea`);
+    const text = textarea.value;
+    const cursorPos = this.getCursorPosition();
+    const textAreaConfig = this.getTextareaConfig();
+    switch (elementId) {
+      case 'Backspace':
+        if (cursorPos) {
+          textarea.value = text.substring(0, cursorPos - 1) + text.substring(cursorPos);
+          textarea.selectionStart = cursorPos - 1;
+          textarea.selectionEnd = cursorPos - 1;
+        }
+        break;
+      case 'Tab':
+        textarea.value = `${text.substring(0, cursorPos)}    ${text.substring(cursorPos)}`;
+        textarea.selectionStart = cursorPos + 4;
+        textarea.selectionEnd = cursorPos + 4;
+        break;
+      case 'Delete':
+        textarea.value = text.substring(0, cursorPos) + text.substring(cursorPos + 1);
+        textarea.selectionStart = cursorPos;
+        textarea.selectionEnd = cursorPos;
+        break;
+      case 'CapsLock':
+        this.caps = this.caps !== true;
+        break;
+      case 'Enter':
+        textarea.value = `${text.substring(0, cursorPos)}\n${text.substring(cursorPos)}`;
+        textarea.selectionStart = cursorPos + 1;
+        textarea.selectionEnd = cursorPos + 1;
+        break;
+      case 'ArrowUp':
+        if (textAreaConfig.resStr === 0) {
+          textarea.selectionStart = 0;
+          textarea.selectionEnd = 0;
+        } else {
+          let finalPos = 0;
+          if (textAreaConfig.cursorPositionInCurrentString >= textAreaConfig.previousStringLength) {
+            finalPos = textAreaConfig.nIndices[textAreaConfig.resStr - 1] - 1;
+          } else {
+            finalPos = cursorPos - textAreaConfig.previousStringLength;
+          }
+          textarea.selectionStart = finalPos;
+          textarea.selectionEnd = finalPos;
+        }
+        break;
+      case 'ArrowLeft':
+        if (cursorPos !== 0) {
+          textarea.selectionStart = cursorPos - 1;
+          textarea.selectionEnd = cursorPos - 1;
+        }
+        break;
+      case 'ArrowDown':
+        if (textAreaConfig.resStr === (textAreaConfig.strsLength.length - 1)) {
+          textarea.selectionStart = textarea.value.length;
+          textarea.selectionEnd = textarea.value.length;
+        } else {
+          let finalPos = 0;
+          if (textAreaConfig.cursorPositionInCurrentString > textAreaConfig.nextStringLength) {
+            finalPos = textAreaConfig.nIndices[textAreaConfig.resStr]
+              + textAreaConfig.nextStringLength - 1;
+          } else {
+            finalPos = cursorPos + textAreaConfig.thisStringLength;
+          }
+          textarea.selectionStart = finalPos;
+          textarea.selectionEnd = finalPos;
+        }
+        break;
+      case 'ArrowRight':
+        textarea.selectionStart = cursorPos + 1;
+        textarea.selectionEnd = cursorPos + 1;
+        break;
+      default:
+        break;
+    }
+  }
 
+  getTextareaConfig() {
+    const textarea = document.querySelector(`.${this.keyboardTextareaClass} textarea`);
+    const text = textarea.value;
+    const cursorPos = this.getCursorPosition();
+    const strsArrayInsideTextarea = text.split('\n');
+    const strsLength = []; // массив с длиной каждой строки
+    const nIndices = []; // массив с позициями переносов строк
 
-  // processClick(element) {
-  //     // element.classList.toggle('pressed');
-  //     // const textarea = document.querySelector('textarea');
-  //     // if (!element.classList.contains('special') && !element.classList.contains('pressed')) {
-  //     //     textarea.value += element.innerText.toLowerCase();
-  //     // }
-  //     element.classList.add('pressed');
-  //     const textarea = document.querySelector('textarea');
-  //     if (!element.classList.contains('special')) {
-  //         textarea.value += element.innerText;
-  //     }
-  // }
+    let counter = 0;
+    let resStr = 0;
+
+    for (let i = 0; i < strsArrayInsideTextarea.length; i += 1) {
+      strsLength.push(strsArrayInsideTextarea[i].length + 1);
+    }
+
+    for (let i = 0; i < text.length; i += 1) {
+      if (text[i] === '\n') nIndices.push(i + 1);
+    }
+
+    while (cursorPos >= nIndices[counter]) {
+      resStr += 1;
+      counter += 1;
+    }
+
+    const cursorPositionInCurrentString = (resStr === 0)
+      ? cursorPos
+      : (cursorPos - nIndices[resStr - 1]);
+    const thisStringLength = strsLength[resStr];
+    const previousStringLength = (resStr === 0) ? null : strsLength[resStr - 1];
+    const nextStringLength = (resStr === (strsArrayInsideTextarea.length - 1))
+      ? null
+      : strsLength[resStr + 1];
+
+    return {
+      cursorPos,
+      strsLength,
+      resStr,
+      nIndices,
+      thisStringLength,
+      cursorPositionInCurrentString,
+      previousStringLength,
+      nextStringLength,
+    };
+  }
+
+  getCursorPosition() { // получить позицию курсора в textarea
+    const textarea = document.querySelector(`.${this.keyboardTextareaClass} textarea`);
+    return textarea.selectionStart;
+  }
 
   renderKeyboard(keysObj, language, container) { // нарисовать клавиатуру
     const keyboard = new Keyboard(keysObj, language, container);
@@ -120,7 +233,7 @@ export class App {
 
   switchLanguage() { // поменять язык приложения
     const curLang = this.language;
-    const newLang = (curLang == 'rus') ? 'eng' : 'rus';
+    const newLang = (curLang === 'rus') ? 'eng' : 'rus';
     this.setLanguage(newLang);
   }
 
@@ -175,67 +288,11 @@ export class App {
     textarea.addEventListener('keypress', (event) => {
       event.preventDefault();
     });
+    textarea.addEventListener('keydown', (event) => {
+      event.preventDefault();
+    });
+    textarea.addEventListener('keyup', (event) => {
+      event.preventDefault();
+    });
   }
 }
-
-
-// import { Button } from './button.js';
-
-// export class App {
-//     constructor() {
-//         this.wrapperClass = 'wrapper';
-//         this.keyboardConatainerClass = 'keyboard__container';
-//         this.keyboardInputClass = 'keyboard__container__input';
-//         this.keyboardKeysClass = 'keyboard__container__keys';
-//         // this.language = language;
-//     }
-
-//     init() {
-//         this.createKeyboardContainer();
-//         this.createButtons(buttonsObj);
-//     }
-
-//     rerenderKeyboard(buttonsObj, language){
-//         console.log(language)
-//         let keysContainer = document.querySelector('.keyboard__container__keys');
-//         keysContainer.innerHTML = '';
-//         for (let prop in buttonsObj) {
-//             let button = new Button(prop, buttonsObj[prop], language);
-//             keysContainer.append(button.render());
-//           }
-//     }
-
-//     createButtons(buttonsObj){
-//         // for (let prop in buttonsObj) {
-//         //     console.log(prop + " = " + buttonsObj[prop].rus);
-//         //     console.log(prop + " = " + buttonsObj[prop].eng);
-//         //   }
-//         let keysContainer = document.querySelector('.keyboard__container__keys');
-//         for (let prop in buttonsObj) {
-//             let button = new Button(prop, buttonsObj[prop], this.language);
-//             keysContainer.append(button.render());
-//           }
-
-//     }
-
-//     createKeyboardContainer() {
-//         this.createDivWithClassInside(this.wrapperClass, 'body');
-//         this.createDivWithClassInside(this.keyboardConatainerClass, '.' + this.wrapperClass);
-//         this.createDivWithClassInside(this.keyboardInputClass, '.' + this.keyboardConatainerClass);
-//         this.createElementInside('textarea',  '.' + this.keyboardInputClass);
-//         this.createDivWithClassInside(this.keyboardKeysClass, '.' + this.keyboardConatainerClass);
-//     }
-
-//     createDivWithClassInside(cssClass, outerElementSelector) {
-//         const outerElement = document.querySelector(outerElementSelector);
-//         const innerElement = document.createElement('div');
-//         innerElement.className = cssClass;
-//         outerElement.append(innerElement);
-//     }
-
-//     createElementInside(elementName, outerElementSelector){
-//         const outerElement = document.querySelector(outerElementSelector);
-//         const innerElement = document.createElement(elementName);
-//         outerElement.append(innerElement);
-//     }
-// }
