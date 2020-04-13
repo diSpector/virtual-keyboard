@@ -35,7 +35,7 @@ export default class App {
       if (!button) {
         return;
       }
-      this.processEvent(button, 'click');
+      this.processEvent(button);
     });
 
     container.addEventListener('mouseup', (event) => {
@@ -59,7 +59,7 @@ export default class App {
       if (!button) {
         return;
       }
-      this.processEvent(button, 'click');
+      this.processEvent(button);
     });
 
     document.addEventListener('keyup', (event) => {
@@ -72,7 +72,7 @@ export default class App {
     });
   }
 
-  processEvent(element, event = 'push') { // обработка события нажатия/клика
+  processEvent(element) { // обработка события нажатия/клика
     const cursorPos = this.getCursorPosition();
     const textarea = document.querySelector(`.${this.keyboardTextareaClass} textarea`);
     element.classList.add('pressed');
@@ -83,7 +83,7 @@ export default class App {
       + text.substring(cursorPos);
       textarea.selectionStart = cursorPos + 1;
       textarea.selectionEnd = cursorPos + 1;
-    } else if (element.classList.contains('special') && event === 'click') {
+    } else {
       this.processSpecialClick(element.id);
     }
   }
@@ -112,7 +112,7 @@ export default class App {
         textarea.selectionEnd = cursorPos;
         break;
       case 'CapsLock':
-        this.caps = this.caps !== true;
+        this.caps = !this.caps;
         break;
       case 'Enter':
         textarea.value = `${text.substring(0, cursorPos)}\n${text.substring(cursorPos)}`;
@@ -176,9 +176,9 @@ export default class App {
     let counter = 0;
     let resStr = 0;
 
-    for (let i = 0; i < strsArrayInsideTextarea.length; i += 1) {
-      strsLength.push(strsArrayInsideTextarea[i].length + 1);
-    }
+    strsArrayInsideTextarea.forEach((oneStr) => { // перебрать все строки
+      strsLength.push(oneStr.length + 1);
+    });
 
     for (let i = 0; i < text.length; i += 1) {
       if (text[i] === '\n') nIndices.push(i + 1);
